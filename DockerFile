@@ -1,27 +1,21 @@
 # ==== Étape 1 : Build de l'application avec Maven (image temporaire) ====
 FROM maven:3.9.10-eclipse-temurin-17 AS builder
 
-# Copie du code source
 WORKDIR /app
 COPY pom.xml .
 COPY src ./src
 
-# Télécharge les dépendances + compile + package (en mode offline pour accélérer les builds suivants)
 RUN mvn dependency:go-offline
 RUN mvn clean package -DskipTests
 
-# ==== Étape 2 : Image finale légère (seulement le JAR + JRE) ====
+# ==== Étape 2 : Image finale légère ====
 FROM eclipse-temurin:17-jre-alpine
 
-# Création d'un utilisateur non-root (bonne pratique sécurité)
 RUN addgroup --system spring && adduser --system --ingroup spring spring
 USER spring
 
-# Copie du JAR depuis l'étape précédente
 COPY --from=builder /app/target/*.jar app.jar
 
-# Port par défaut de Spring Boot
 EXPOSE 8082
 
-# Lancement de l'application
 ENTRYPOINT ["java", "-jar", "/app.jar"]

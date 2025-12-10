@@ -45,8 +45,8 @@ pipeline {
             steps {
                 script {
                     def tag = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
-                    // Utilisation du Dockerfile en minuscules
-                    sh "docker build -t ${DOCKER_IMAGE}:${tag} -f dockerfile ."
+                    // Dockerfile avec D majuscule
+                    sh "docker build -t ${DOCKER_IMAGE}:${tag} ."
                 }
             }
         }

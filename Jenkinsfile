@@ -2,12 +2,14 @@ pipeline {
     agent any
 
     tools {
-        maven 'Maven'
-        jdk 'JDK'
+        maven 'Maven'   // Nom de ton outil Maven configuré dans Jenkins
+        jdk 'JDK'       // Nom de ton JDK configuré dans Jenkins
     }
 
     environment {
         DOCKER_IMAGE = "siriinaa2233/alpine"
+        APP_PORT = "8080"        // Port interne de Spring Boot
+        HOST_PORT = "8082"       // Port exposé sur l'hôte / pour ngrok
     }
 
     stages {
@@ -19,62 +21,61 @@ pipeline {
         }
 
         stage('Clean') {
-            steps {
-                sh 'mvn clean'
-            }
+            steps { sh 'mvn clean' }
         }
 
         stage('Compile') {
-            steps {
-                sh 'mvn compile'
-            }
+            steps { sh 'mvn compile' }
         }
 
         stage('Test') {
-            steps {
-                sh 'mvn test'
-            }
-            post {
-                always {
-                    junit '**/target/surefire-reports/*.xml'
-                }
-            }
+            steps { sh 'mvn test' }
+            post { always { junit '**/target/surefire-reports/*.xml' } }
         }
 
         stage('Package') {
-            steps {
-                sh 'mvn package -DskipTests'
-            }
+            steps { sh 'mvn package -DskipTests' }
         }
 
         stage('Archive JAR') {
-            steps {
-                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
-            }
+            steps { archiveArtifacts artifacts: 'target/*.jar', fingerprint: true }
         }
 
         stage('Build Docker Image') {
             steps {
                 script {
-                    // Tag basé sur le commit
                     def tag = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
-
                     sh "docker build -t ${DOCKER_IMAGE}:${tag} ."
                 }
             }
         }
 
-        stage('Run Container (8082)') {
+        stage('Run Container') {
             steps {
                 script {
                     def tag = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
-
                     sh """
                         docker rm -f studentsapp || true
-                        docker run -d --name studentsapp -p 8082:8082 ${DOCKER_IMAGE}:${tag}
+                        docker run -d --name studentsapp -p ${HOST_PORT}:${APP_PORT} ${DOCKER_IMAGE}:${tag}
                     """
                 }
             }
+        }
+
+        stage('Show Access Info') {
+            steps {
+                echo "L'application Spring Boot est maintenant accessible sur http://localhost:${HOST_PORT}"
+                echo "Si tu utilises ngrok, lance : ngrok http ${HOST_PORT}"
+            }
+        }
+    }
+
+    post {
+        failure {
+            echo "Le pipeline a échoué ! Vérifie les logs et Docker."
+        }
+        success {
+            echo "Pipeline terminé avec succès !"
         }
     }
 }

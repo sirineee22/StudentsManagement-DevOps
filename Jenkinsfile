@@ -45,7 +45,8 @@ pipeline {
             steps {
                 script {
                     def tag = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
-                    sh "docker build -t ${DOCKER_IMAGE}:${tag} ."
+                    // Utilisation du Dockerfile en minuscules
+                    sh "docker build -t ${DOCKER_IMAGE}:${tag} -f dockerfile ."
                 }
             }
         }
@@ -54,7 +55,6 @@ pipeline {
             steps {
                 script {
                     def tag = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
-                    // Utilisation sécurisée des credentials Jenkins
                     docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-creds') {
                         sh "docker push ${DOCKER_IMAGE}:${tag}"
                     }

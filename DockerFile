@@ -1,22 +1,98 @@
-# ==== Étape 1 : Build de l'application avec Maven (image temporaire) ====
-FROM maven:3.9.10-eclipse-temurin-17 AS builder
+pipeline {
+    agent any
 
-WORKDIR /app
-COPY pom.xml .
-COPY src ./src
+    tools {
+        maven 'Maven'   // Nom de ton outil Maven configuré dans Jenkins
+        jdk 'JDK'       // Nom de ton JDK configuré dans Jenkins
+    }
 
-RUN mvn dependency:go-offline
-RUN mvn clean package -DskipTests
+    environment {
+        DOCKER_IMAGE = "siriinaa2233/alpine"  // ton image Docker Hub
+        APP_PORT = "8082"        // Port interne de Spring Boot (comme dans Dockerfile)
+        HOST_PORT = "8082"       // Port exposé sur l'hôte / pour ngrok
+    }
 
-# ==== Étape 2 : Image finale légère ====
-FROM eclipse-temurin:17-jre-alpine
+    stages {
 
-RUN addgroup --system spring && adduser --system --ingroup spring spring
-USER spring
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/sirineee22/StudentsManagement-DevOps'
+            }
+        }
 
-COPY --from=builder /app/target/*.jar app.jar
+        stage('Clean') {
+            steps { sh 'mvn clean' }
+        }
 
-EXPOSE 8082
+        stage('Compile') {
+            steps { sh 'mvn compile' }
+        }
 
-ENTRYPOINT ["java", "-jar", "/app.jar"]
+        stage('Test') {
+            steps { sh 'mvn test' }
+            post { always { junit '**/target/surefire-reports/*.xml' } }
+        }
+
+        stage('Package') {
+            steps { sh 'mvn package -DskipTests' }
+        }
+
+        stage('Archive JAR') {
+            steps { archiveArtifacts artifacts: 'target/*.jar', fingerprint: true }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    def tag = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
+                    // Si ton Dockerfile est à la racine du repo
+                    sh "docker build -t ${DOCKER_IMAGE}:${tag} ."
+                    // Si Dockerfile dans un sous-dossier, par ex docker/Dockerfile
+                    // sh "docker build -t ${DOCKER_IMAGE}:${tag} -f docker/Dockerfile ."
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    def tag = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
+                    // 'dockerhub-creds' doit être configuré dans Jenkins (ID des credentials)
+                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-creds') {
+                        sh "docker push ${DOCKER_IMAGE}:${tag}"
+                    }
+                }
+            }
+        }
+
+        stage('Run Container') {
+            steps {
+                script {
+                    def tag = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
+                    sh """
+                        docker rm -f studentsapp || true
+                        docker run -d --name studentsapp -p ${HOST_PORT}:${APP_PORT} ${DOCKER_IMAGE}:${tag}
+                    """
+                }
+            }
+        }
+
+        stage('Show Access Info') {
+            steps {
+                echo "L'application Spring Boot est maintenant accessible sur http://localhost:${HOST_PORT}"
+                echo "Pour ngrok, lance : ngrok http ${HOST_PORT}"
+                echo "Ton image Docker est poussée sur Docker Hub sous : ${DOCKER_IMAGE}:${tag}"
+            }
+        }
+    }
+
+    post {
+        failure {
+            echo "Le pipeline a échoué ! Vérifie les logs et Docker."
+        }
+        success {
+            echo "Pipeline terminé avec succès !"
+        }
+    }
+}
 

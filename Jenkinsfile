@@ -13,7 +13,6 @@ pipeline {
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/sirineee22/StudentsManagement-DevOps'
@@ -45,8 +44,7 @@ pipeline {
             steps {
                 script {
                     def tag = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
-                    // Dockerfile avec D majuscule
-                    sh "docker build -t ${DOCKER_IMAGE}:${tag} ."
+                    sh "docker build -t ${DOCKER_IMAGE}:${tag} -f dockerfile ."
                 }
             }
         }
@@ -77,7 +75,6 @@ pipeline {
         stage('Show Access Info') {
             steps {
                 script {
-                    def tag = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
                     echo "L'application Spring Boot est maintenant accessible sur http://localhost:${HOST_PORT}"
                     echo "Pour ngrok, lance : ngrok http ${HOST_PORT}"
                     echo "Ton image Docker est poussée sur Docker Hub sous : ${DOCKER_IMAGE}:${tag}"
@@ -87,11 +84,7 @@ pipeline {
     }
 
     post {
-        failure {
-            echo "Le pipeline a échoué ! Vérifie les logs et Docker."
-        }
-        success {
-            echo "Pipeline terminé avec succès !"
-        }
+        failure { echo "Le pipeline a échoué ! Vérifie les logs et Docker." }
+        success { echo "Pipeline terminé avec succès !" }
     }
 }

@@ -7,7 +7,7 @@ pipeline {
     }
 
     environment {
-        DOCKER_IMAGE = "siriinaa2233/alpine"  // ton image Docker Hub
+        DOCKER_IMAGE = "siriinaa2233/alpine"  // Ton image Docker Hub
         APP_PORT = "8080"        // Port interne de Spring Boot
         HOST_PORT = "8082"       // Port exposé sur l'hôte / pour ngrok
     }
@@ -54,7 +54,7 @@ pipeline {
             steps {
                 script {
                     def tag = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
-                    // dockerhub-creds = credentials ID configuré dans Jenkins
+                    // Utilisation sécurisée des credentials Jenkins
                     docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-creds') {
                         sh "docker push ${DOCKER_IMAGE}:${tag}"
                     }
@@ -76,9 +76,12 @@ pipeline {
 
         stage('Show Access Info') {
             steps {
-                echo "L'application Spring Boot est maintenant accessible sur http://localhost:${HOST_PORT}"
-                echo "Pour ngrok, lance : ngrok http ${HOST_PORT}"
-                echo "Ton image Docker est poussée sur Docker Hub sous : ${DOCKER_IMAGE}:${tag}"
+                script {
+                    def tag = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
+                    echo "L'application Spring Boot est maintenant accessible sur http://localhost:${HOST_PORT}"
+                    echo "Pour ngrok, lance : ngrok http ${HOST_PORT}"
+                    echo "Ton image Docker est poussée sur Docker Hub sous : ${DOCKER_IMAGE}:${tag}"
+                }
             }
         }
     }

@@ -1,5 +1,9 @@
 pipeline {
     agent any
+    
+    triggers {
+        githubPush()  // Active le trigger GitHub webhook automatiquement
+    }
 
     tools {
         maven 'Maven'   // Nom de ton Maven dans Jenkins
@@ -59,7 +63,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    TAG = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
+                    def TAG = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
                     echo "Building Docker image: ${DOCKER_IMAGE}:${TAG}"
 
                     sh """
@@ -79,6 +83,7 @@ pipeline {
                     passwordVariable: 'DH_PASS'
                 )]) {
                     script {
+                        def TAG = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
                         sh """
                             echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin
                             docker push ${DOCKER_IMAGE}:${TAG}
@@ -94,6 +99,7 @@ pipeline {
         stage('Run Container') {
             steps {
                 script {
+                    def TAG = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
                     sh """
                         docker rm -f studentsapp || true
                         docker run -d --name studentsapp -p ${HOST_PORT}:${APP_PORT} ${DOCKER_IMAGE}:${TAG}

@@ -85,7 +85,7 @@ pipeline {
                     script {
                         def TAG = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
                         sh """
-                            echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin
+                            echo "\$DH_PASS" | docker login -u "\$DH_USER" --password-stdin
                             docker push ${DOCKER_IMAGE}:${TAG}
                             docker push ${DOCKER_IMAGE}:latest
                             docker logout
@@ -112,6 +112,7 @@ pipeline {
         stage('Show Access Info') {
             steps {
                 script {
+                    def TAG = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
                     echo "👉 Application disponible sur : http://localhost:${HOST_PORT}"
                     echo "👉 Pour exposer via Ngrok : ngrok http ${HOST_PORT}"
                     echo "👉 Image Docker poussée sur Docker Hub : ${DOCKER_IMAGE}:${TAG}"

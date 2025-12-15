@@ -76,7 +76,8 @@ pipeline {
             }
         }
 
-        /* 7) PUSH DOCKER HUB */
+        /* 7) PUSH DOCKER HUB - DÉSACTIVÉ TEMPORAIREMENT */
+        /* 
         stage('Push Docker Image') {
             steps {
                 withCredentials([usernamePassword(
@@ -96,6 +97,7 @@ pipeline {
                 }
             }
         }
+        */
 
         /* 8) RUN CONTAINER */
         stage('Run Container') {

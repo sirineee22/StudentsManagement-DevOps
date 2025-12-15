@@ -15,6 +15,8 @@ pipeline {
         DOCKER_CRED  = "dockerhub-creds"       // Credentials Jenkins
         APP_PORT     = "8080"                  // Port de Spring Boot
         HOST_PORT    = "8082"                  // Port exposé pour accès externe
+        K8S_NAMESPACE = "devops"               // Kubernetes namespace
+        K8S_DEPLOYMENT = "students-app"        // Kubernetes deployment name
     }
 
     stages {
@@ -108,14 +110,62 @@ pipeline {
             }
         }
 
-        /* 9) ACCESS INFORMATION */
+        /* 9) DEPLOY TO KUBERNETES */
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    echo "🚀 Déploiement sur Kubernetes..."
+                    
+                    sh """
+                        # Vérifier la connexion au cluster
+                        kubectl cluster-info
+                        
+                        # Vérifier que le deployment existe
+                        if kubectl get deployment ${K8S_DEPLOYMENT} -n ${K8S_NAMESPACE} > /dev/null 2>&1; then
+                            echo "✅ Deployment trouvé, redémarrage en cours..."
+                            
+                            # Forcer le pull de la nouvelle image et redémarrer
+                            kubectl rollout restart deployment ${K8S_DEPLOYMENT} -n ${K8S_NAMESPACE}
+                            
+                            # Attendre que le rollout soit terminé
+                            echo "⏳ Attente de la fin du déploiement..."
+                            kubectl rollout status deployment ${K8S_DEPLOYMENT} -n ${K8S_NAMESPACE} --timeout=5m
+                            
+                            # Afficher les pods
+                            echo "📦 Pods actuels:"
+                            kubectl get pods -n ${K8S_NAMESPACE} -l app=students-app
+                            
+                            echo "✅ Déploiement Kubernetes terminé avec succès!"
+                        else
+                            echo "❌ Deployment ${K8S_DEPLOYMENT} introuvable dans le namespace ${K8S_NAMESPACE}!"
+                            echo "Veuillez déployer manuellement d'abord avec: kubectl apply -f spring-deployment.yaml"
+                            exit 1
+                        fi
+                    """
+                }
+            }
+        }
+
+        /* 10) ACCESS INFORMATION */
         stage('Show Access Info') {
             steps {
                 script {
                     def TAG = sh(returnStdout: true, script: "git rev-parse --short HEAD").trim()
-                    echo "👉 Application disponible sur : http://localhost:${HOST_PORT}"
-                    echo "👉 Pour exposer via Ngrok : ngrok http ${HOST_PORT}"
-                    echo "👉 Image Docker poussée sur Docker Hub : ${DOCKER_IMAGE}:${TAG}"
+                    echo "=============================================="
+                    echo "✅ DÉPLOIEMENT TERMINÉ"
+                    echo "=============================================="
+                    echo "🐳 Docker Container (local):"
+                    echo "   → http://localhost:${HOST_PORT}"
+                    echo ""
+                    echo "☸️  Kubernetes (Minikube):"
+                    echo "   → Namespace: ${K8S_NAMESPACE}"
+                    echo "   → Deployment: ${K8S_DEPLOYMENT}"
+                    echo "   → Obtenir l'URL: minikube service students-service -n ${K8S_NAMESPACE} --url"
+                    echo ""
+                    echo "🚀 Image Docker:"
+                    echo "   → ${DOCKER_IMAGE}:${TAG}"
+                    echo "   → ${DOCKER_IMAGE}:latest"
+                    echo "=============================================="
                 }
             }
         }
@@ -124,6 +174,7 @@ pipeline {
     post {
         success {
             echo "✅ Pipeline terminé avec succès !"
+            echo "✅ Application déployée sur Docker ET Kubernetes !"
         }
         failure {
             echo "❌ Le pipeline a échoué. Vérifie les logs."
